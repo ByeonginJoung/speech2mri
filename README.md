@@ -10,7 +10,7 @@ librosa==0.10.2.post1
 matplotlib==3.6.2
 numpy==1.23.5
 moviepy==1.0.3
-scikit-learn==1.9.3
+scipy==1.9.3
 pydub
 soundfile
 opencv-python
