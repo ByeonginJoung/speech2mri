@@ -1,5 +1,4 @@
 demo_items/
 logs/
-
-.ipynb_checkpoints
+.ipynb_checkpoints/
 .gitignore
