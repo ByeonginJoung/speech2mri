@@ -78,6 +78,12 @@ def test_eval(args, model, epoch_idx, val_loader, logger, res, data_stats, devic
             fps = 23.18 / args.data.fps_control_ratio
         elif args.dataset_type == '75-speaker':
             fps = 83.28 / args.data.fps_control_ratio
+        elif args.dataset_type == '75-speaker-word':
+            fps = 83.28 / args.data.fps_control_ratio
+        elif args.dataset_type == '75-speaker-multi':
+            fps = 83.28 / args.data.fps_control_ratio
+        elif args.dataset_type == '75-speaker-multi-word':
+            fps = 83.28 / args.data.fps_control_ratio
         else:
             raise NotImplementedError
         

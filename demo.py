@@ -73,7 +73,7 @@ def main(args, logger):
     device = torch.device("cuda:0" if torch.cuda.is_available() else 'cpu')
 
     # for the given pretrained model, img shape: [84, 84]
-    if args.dataset_type == '75-speaker':
+    if '75-speaker' in args.dataset_type:
         frame_H = 84
         frame_W = 84
         dataset_fps = 83.28
@@ -93,6 +93,16 @@ def main(args, logger):
         if args.audio_fname != 'None':
             print(f'There is a video input, but the audio input was also. please select only one.')
             raise NotImplementedError
+        elif args.concat_vid is False:
+            # only for a single word.
+            args.audio_fname = 'demo_items/output_audio.wav'
+            procs = ['ffmpeg', '-i', args.input_fname, '-vn', '-acodec', 'pcm_s16le', '-ar', '44100', '-ac', '2', args.audio_fname, '-y']
+            
+            print(f'==================================================')
+            print(f'process for audio parsing: {procs}')
+            print(f'==================================================')
+            
+            subprocess.run(procs)
         else:
             # extract audio from video
             if args.cut_vid_init == None:
@@ -106,8 +116,12 @@ def main(args, logger):
             procs1 = ['ffmpeg', '-i', args.input_fname, '-ss', f'{args.cut_vid_init}', '-t', f'{args.cut_vid_end}', '-c', 'copy', temp_out_fname, '-y']
             procs2 = ['ffmpeg', '-i', temp_out_fname, '-vn', '-acodec', 'pcm_s16le', '-ar', '44100', '-ac', '2', args.audio_fname, '-y']
 
+            print(f'==================================================')
             print(f'process1 for video cutting: {procs1}')
+            print(f'==================================================')
+            print(f'==================================================')
             print(f'process2 for audio parsing: {procs2}')
+            print(f'==================================================')
             
             subprocess.run(procs1)
             subprocess.run(procs2)
@@ -116,7 +130,7 @@ def main(args, logger):
         if args.audio_fname == 'None':
             print(f'The video and audio does not selected. Please use arguments for that.')
             raise NotImplementedError
-            
+        
     # prepare input audio
 
     # For the galaxy S22, the sampling frequency is 44.1kHz
@@ -208,9 +222,9 @@ def main(args, logger):
     model.eval()
     model = model.to(device)
     
-    _, audio = data_batchify(audio.T.unsqueeze(0).to(device), lookback=args.data.lookback, fps_control_ratio=args.data.fps_control_ratio)
+    _, dummy_audio = data_batchify(audio.T.unsqueeze(0).to(device), lookback=args.data.lookback, fps_control_ratio=args.data.fps_control_ratio)
     
-    n_frames = audio.shape[0]
+    n_frames = dummy_audio.shape[0]
     frame_length = frameShift / samplingFrequency # idk why, the sampling frequency should be doubled
     fps = 1 / frame_length / args.data.fps_control_ratio
 
@@ -220,19 +234,27 @@ def main(args, logger):
 
     if args.model.use_prev_frame:
         # if you use option for opt.use_prev_frame, u need to use initial frame to inference
-        if args.dataset_type == '75-speaker':
+        if '75-speaker' in args.dataset_type:
             random_video = load_video('demo_items/sub051_2drt_07_grandfather1_r1_video.avi')
         elif args.dataset_type == 'timit':
             random_video = load_video('demo_items/usctimit_mri_m1_011_015_withaudio.avi')
         else:
             raise NotImplementedError
+
+        if 'vcv' in args.input_fname:
+            random_video = load_video('demo_items/sub015_vcv1.mp4')
+
+            gt_video, _ = data_batchify(audio.T.unsqueeze(0).to(device),
+                                        torch.from_numpy(random_video).permute(2,0,1).unsqueeze(0),
+                                        lookback=args.data.lookback,
+                                        fps_control_ratio = args.data.fps_control_ratio)
         
         init_vid = random_video.transpose(-1, 0, 1)[10]
         init_vid = torch.from_numpy(init_vid).cuda()
         
         temp_vid_list = list()
         
-        for proc_idx, temp_audio in enumerate(tqdm(audio)):
+        for proc_idx, temp_audio in enumerate(tqdm(dummy_audio)):
             with torch.no_grad():
                 if proc_idx == 0:
                     temp_pred = model(temp_audio.unsqueeze(0), init_vid.unsqueeze(0)).view(frame_W, frame_H).cpu().detach()
@@ -245,10 +267,10 @@ def main(args, logger):
     else:
         # put into the model and process the results
         with torch.no_grad():
-            pred = model(audio.squeeze()).view(n_frames, frame_W, frame_H).cpu().detach().numpy() * 255
+            pred = model(dummy_audio.squeeze()).view(n_frames, frame_W, frame_H).cpu().detach().numpy() * 255
         
     pred = pred.astype(np.uint8)
-   
+    
     print(f'Prediction complete')
     # save video
     # Define video parameters
@@ -289,7 +311,7 @@ def main(args, logger):
         # Calculate the duration of the new video clip in seconds
         frame_count = len(selected_frames)
         duration = frame_count / video1.fps
-
+   
         # Extract the audio segment matching the selected frames
         # Calculate start and end time in seconds
         start_time = 10 / video1.fps  # The time corresponding to the 10th frame
@@ -343,7 +365,131 @@ def main(args, logger):
         subprocess.run(command)
 
         print(f"Video saved as {output_video}")
-        
+
+        if args.eval:
+            print(f'Conduct evaluation.')
+
+            pred = pred / 255.
+            gt = gt_video.numpy()
+            
+            def calculate_psnr(pred, gt, max_pixel_value=1.0):
+                mse = np.mean((pred - gt) ** 2)
+                if mse == 0:
+                    return float('inf')
+                psnr = 20 * np.log10(max_pixel_value / np.sqrt(mse))
+                return psnr
+
+            psnr_values = [calculate_psnr(pred[i], gt[i]) for i in range(pred.shape[0])]
+            average_psnr = np.mean(psnr_values)
+            
+            from skimage.metrics import structural_similarity as ssim
+
+            def calculate_ssim(pred, gt):
+                ssim_value = ssim(pred[None,...], gt[None,...], data_range=1.0, channel_axis=0)
+                return ssim_value
+
+            # Calculate SSIM for each frame and average
+            ssim_values = [calculate_ssim(pred[i], gt[i]) for i in range(pred.shape[0])]
+            average_ssim = np.mean(ssim_values)
+            
+            if False:
+                # it seems to be does not work anymore.
+                # since the specific version of tensorflow is required, but the current
+                # system does not support those tensorflow versions, like 2.0.0 or 2.3.0
+                # in my system, only later from 2.8.0 version can be installed.
+                # there are various errors from the tf, I changed this part to the pytorch
+            
+                import tensorflow as tf
+                import tensorflow_hub as hub    
+                # Load I3D model from TensorFlow Hub
+                i3d_module = hub.load("https://tfhub.dev/deepmind/i3d-kinetics-400/1")
+
+                def preprocess_frames(video):
+                    video = tf.image.resize(video, (224, 224))  # Resizing frames to 224x224
+                    video = tf.cast(video, tf.float32)  # Normalizing to [0, 1]
+                    return video
+
+                def extract_i3d_features(video):
+                    video = preprocess_frames(video)
+                    video = tf.expand_dims(video, axis=0)  # Add batch dimension
+                    embeddings = i3d_module(video)
+                    return embeddings
+
+                import pdb; pdb.set_trace()
+
+                # Extract I3D embeddings for both videos
+                pred_features = extract_i3d_features(pred)
+                gt_features = extract_i3d_features(gt)
+
+                # Compute FVD
+                fvd_value = np.linalg.norm(pred_features - gt_features)
+                print(f"FVD: {fvd_value}")
+
+            else:
+                from torchvision import models as F_models
+                from torchvision import transforms
+                from torch.nn import functional as F
+
+                # Assuming a custom PyTorch I3D model is available
+                i3d_model = F_models.video.r3d_18(pretrained=True)  # Substitute this with an I3D model if available
+                i3d_model.eval()
+
+                def extract_i3d_features(video):
+
+                    mean=torch.FloatTensor([0.485, 0.456, 0.406])
+                    std=torch.FloatTensor([0.229, 0.224, 0.225])
+
+                    frame_list = list()
+                    
+                    for frame in video:
+                        frame = torch.from_numpy(frame).unsqueeze(0).repeat(3,1,1)
+                        frame = F.interpolate(frame.unsqueeze(0), (224, 224)).squeeze(0)
+
+                        frame = (frame - mean.view(3, 1, 1)) / std.view(3, 1, 1)
+                        frame_list.append(frame)
+
+                    video = torch.stack(frame_list).permute(1,0,2,3).float().unsqueeze(0)
+
+                    #video = video.unsqueeze(0)  # Add batch dimension
+                    with torch.no_grad():
+                        embeddings = i3d_model(video).flatten(start_dim=1)  # Flatten output features
+                    return embeddings.cpu().numpy()
+
+                # Example usage:
+                pred_features = extract_i3d_features(pred)
+                gt_features = extract_i3d_features(gt)
+
+                # Calculate FVD
+                fvd_value = np.linalg.norm(pred_features - gt_features)
+
+                
+                print(f"Average PSNR: {average_psnr}")
+                print(f"Average SSIM: {average_ssim}")
+                print(f"FVD: {fvd_value}")
+
+                # save gt video also here
+                print(f'Write GT video to visual comparison')
+                # Define video parameters
+                fourcc = cv2.VideoWriter_fourcc(*'MJPG')  # Codec (you can use other codecs like 'XVID', 'MJPG', etc.)
+                frame_size = (frame_W, frame_H)           # Frame size
+
+                # Create VideoWriter object
+                out = cv2.VideoWriter('demo_items/gt_video.avi', fourcc, fps, frame_size)
+
+                gt = gt * 255
+                gt = gt.astype(np.uint8)
+                
+                # Convert and write frames to video
+                for i in range(n_frames):
+                    # Convert single-channel grayscale to 3-channel BGR
+                    bgr_frame = cv2.cvtColor(gt[i], cv2.COLOR_GRAY2BGR)
+                    out.write(bgr_frame)
+
+                # Release the VideoWriter object
+                out.release()
+
+            
+
         
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -361,6 +507,7 @@ if __name__ == '__main__':
     parser.add_argument('--cut_vid_end', type=int, default=None)
     parser.add_argument('--concat_vid', action='store_true')
     parser.add_argument('--exist_input_vid', action='store_true')
+    parser.add_argument('--eval', action='store_true')
     
     new_args = load_config(parser.parse_args())
     

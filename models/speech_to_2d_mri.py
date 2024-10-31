@@ -91,6 +91,12 @@ class Speech2MRI2D(nn.Module):
                 add_channel = 4
             elif self.args.dataset_type == '75-speaker':
                 add_channel = 9
+            elif self.args.dataset_type == '75-speaker-word':
+                add_channel = 9
+            elif self.args.dataset_type == '75-speaker-multi':
+                add_channel = 9
+            elif self.args.dataset_type == '75-speaker-multi-word':
+                add_channel = 9
             
             self.cat_feats = nn.Sequential(
                 nn.Conv1d(enc_input_len + add_channel, enc_input_len, 3, 1, 1),

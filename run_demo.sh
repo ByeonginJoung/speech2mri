@@ -12,14 +12,32 @@ export CUDA_VISIBLE_DEVICES=0
 #NORM_AUDIO_FNAME=demo_items/F_mat_song.wav
 #NORM_AUDIO_FNAME=demo_items/steve_jobs_iphone.wav
 #NORM_AUDIO_FNAME=demo_items/cnn_news00.wav
-INPUT_FNAME=demo_items/cnn_news00.mp4
 
 PRINT_0='========================================='
 
+# DATASET_TYPE=('75-speaker' '75-speaker-word' '75-speaker-multi' '75-speaker-multi-word')
+
+DATASET_TYPE='75-speaker'
 SUB_N=scene053
 CONF_NAME=mri_melspectogram_baseline_ver0004_$SUB_N
 EXP_NAME=lstm_msessim_256_sub$SUB_N_$CONF_NAME
 CKPT_IDX=-1
+
+#DATASET_TYPE='75-speaker-word'
+#SUB_N=053
+#CONF_NAME=mri_melspectogram_baseline_ver0004_scene$SUB_N'_word'
+#EXP_NAME=lstm_msessim_256_$CONF_NAME
+#CKPT_IDX=-1
+
+#DATASET_TYPE='75-speaker-multi'
+#CONF_NAME=mri_melspectogram_baseline_ver0004_multi
+#EXP_NAME=lstm_msessim_256_$CONF_NAME
+#CKPT_IDX=-1
+
+#DATASET_TYPE='75-speaker-multi-word'
+#CONF_NAME=mri_melspectogram_baseline_ver0004_multi_word
+#EXP_NAME=lstm_msessim_256_$CONF_NAME
+#CKPT_IDX=-1
 
 echo $PRINT_0
 echo $PRINT_0
@@ -27,17 +45,22 @@ echo $EXP_NAME
 echo $PRINT_0
 echo $PRINT_0
 
+INPUT_FNAME=demo_items/cnn_news00.mp4
+
 python demo.py --dataset mri --exp_name $EXP_NAME --input_fname $INPUT_FNAME --config_name $CONF_NAME \
-       --select_ckpt_idx $CKPT_IDX --exist_input_vid --cut_vid_init 0 --cut_vid_end 30 --concat_vid --dataset_type '75-speaker'
+       --select_ckpt_idx $CKPT_IDX --exist_input_vid --cut_vid_init 0 --cut_vid_end 30 --concat_vid --dataset_type $DATASET_TYPE
 
 INPUT_FNAME=demo_items/kbs_news00.mp4
 
 python demo.py --dataset mri --exp_name $EXP_NAME --input_fname $INPUT_FNAME --config_name $CONF_NAME \
-       --select_ckpt_idx $CKPT_IDX --exist_input_vid --cut_vid_init 0 --cut_vid_end 30 --concat_vid --dataset_type '75-speaker'
+       --select_ckpt_idx $CKPT_IDX --exist_input_vid --cut_vid_init 0 --cut_vid_end 30 --concat_vid --dataset_type $DATASET_TYPE
 
-# for single input audio
+INPUT_FNAME=demo_items/improver_creepin.mp4
 
-#AUDIO_FNAME=demo_items/test0000.wav
+python demo.py --dataset mri --exp_name $EXP_NAME --input_fname $INPUT_FNAME --config_name $CONF_NAME \
+           --select_ckpt_idx $CKPT_IDX --exist_input_vid --cut_vid_init 0 --cut_vid_end 30 --concat_vid --dataset_type $DATASET_TYPE
 
-#python demo.py --dataset mri --exp_name $EXP_NAME --audio_fname $AUDIO_FNAME --config_name $CONF_NAME \
-       --select_ckpt_idx $CKPT_IDX --dataset_type '75-speaker'
+INPUT_FNAME=demo_items/sub015_vcv1.mp4
+
+python demo.py --dataset mri --exp_name $EXP_NAME --input_fname $INPUT_FNAME --config_name $CONF_NAME \
+       --select_ckpt_idx $CKPT_IDX --exist_input_vid --dataset_type $DATASET_TYPE --eval

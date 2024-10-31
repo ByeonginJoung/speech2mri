@@ -65,6 +65,24 @@ class MRI(Dataset):
         if args.dataset_type == '75-speaker':
             video_fnames = sorted(glob(os.path.join(args.dataset_dir, f'sub{int(args.sub_name):03d}', '2drt', 'video', '*.mp4')))
             video_extension = '.mp4'
+        elif args.dataset_type == '75-speaker-word':
+            video_fnames = sorted(glob(os.path.join(args.dataset_dir, f'sub{int(args.sub_name):03d}', '2drt', 'clip', '*.mp4')))
+            video_extension = '.mp4'
+        elif args.dataset_type == '75-speaker-multi':
+            video_fnames_0 = sorted(glob(os.path.join(args.dataset_dir, f'sub053', '2drt', 'video', '*.mp4')))
+            video_fnames_1 = sorted(glob(os.path.join(args.dataset_dir, f'sub057', '2drt', 'video', '*.mp4')))
+            video_fnames_2 = sorted(glob(os.path.join(args.dataset_dir, f'sub063', '2drt', 'video', '*.mp4')))
+            video_fnames = video_fnames_0 + video_fnames_1 + video_fnames_2
+            video_extension = '.mp4'
+        elif args.dataset_type == '75-speaker-multi-word':
+            video_fnames_0 = sorted(glob(os.path.join(args.dataset_dir, f'sub008', '2drt', 'clip', '*.mp4')))
+            video_fnames_1 = sorted(glob(os.path.join(args.dataset_dir, f'sub009', '2drt', 'clip', '*.mp4')))
+            video_fnames_2 = sorted(glob(os.path.join(args.dataset_dir, f'sub013', '2drt', 'clip', '*.mp4')))
+            video_fnames_3 = sorted(glob(os.path.join(args.dataset_dir, f'sub053', '2drt', 'clip', '*.mp4')))
+            video_fnames_4 = sorted(glob(os.path.join(args.dataset_dir, f'sub057', '2drt', 'clip', '*.mp4')))
+            video_fnames_5 = sorted(glob(os.path.join(args.dataset_dir, f'sub063', '2drt', 'clip', '*.mp4')))
+            video_fnames = video_fnames_0 + video_fnames_1 + video_fnames_2 + video_fnames_3 + video_fnames_4 + video_fnames_5
+            video_extension = '.mp4'
         elif args.dataset_type == 'timit':
             video_fnames = sorted(glob(os.path.join(args.dataset_dir, f'{args.sub_name}', 'avi_withaudio', '*.avi')))
             video_extension = '.avi'
